@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cold Wild Swim Club — Redesign Demo</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={theme:{extend:{colors:{navy:'#0b1f3a',ocean:'#1f6fa8',foam:'#f5f3ee',slate2:'#8a97a6',sun:'#f5c518'}}}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{background:#f5f3ee;color:#0b1f3a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes drift{0%,100%{transform:translateX(0)}50%{transform:translateX(-24px)}}
+.rise{animation:rise .7s ease both}.drift{animation:drift 9s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/plain" id="src">
+const { useState, useMemo, useEffect } = React;
+
+type Cat = 'T-shirts' | 'Hoodies' | 'Accessories';
+type Colour = { n: string; h: string };
+type Kind = 'tee' | 'hoodie' | 'beanie' | 'bag';
+type Product = { id: string; name: string; cat: Cat; kind: Kind; price: number; colours: Colour[]; sizes: string[]; desc: string; material: string; fit: string; delivery: string };
+type Line = { key: string; p: Product; colour: string; size: string; qty: number };
+
+const NAVY = { n: 'Navy', h: '#0b1f3a' }, OCEAN = { n: 'Ocean', h: '#1f6fa8' }, SAND = { n: 'Off-white', h: '#e9e4d8' }, SUN = { n: 'Yellow', h: '#f5c518' }, GREY = { n: 'Grey', h: '#8a97a6' };
+const CL = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const SAMPLE_DELIVERY = 'Sample information: delivery arrangements may differ by product type. Verify with the store before launch.';
+const PRODUCTS: Product[] = [
+  { id: 'tee', name: 'Sample Logo T-shirt', cat: 'T-shirts', kind: 'tee', price: 28, colours: [SAND, NAVY, OCEAN], sizes: CL, desc: 'A relaxed everyday tee for the changing-room bench and the walk home. Sample product for demonstration.', material: 'Sample: organic cotton jersey (to be verified)', fit: 'Sample: relaxed, true to size', delivery: SAMPLE_DELIVERY },
+  { id: 'longsleeve', name: 'Sample Long Sleeve', cat: 'T-shirts', kind: 'tee', price: 34, colours: [NAVY, GREY], sizes: CL, desc: 'Layer up for the shoreline. Sample product for demonstration.', material: 'Sample: cotton blend (to be verified)', fit: 'Sample: regular fit', delivery: SAMPLE_DELIVERY },
+  { id: 'hoodie', name: 'Sample Swim Hoodie', cat: 'Hoodies', kind: 'hoodie', price: 62, colours: [NAVY, OCEAN, SUN], sizes: CL, desc: 'A roomy hoodie for the post-swim warm-up. Sample product for demonstration.', material: 'Sample: brushed-back fleece (to be verified)', fit: 'Sample: oversized, size down for a closer fit', delivery: 'Sample information: this item may ship separately from other clothing. Verify with the store before launch.' },
+  { id: 'zip', name: 'Sample Zip Hoodie', cat: 'Hoodies', kind: 'hoodie', price: 68, colours: [GREY, NAVY], sizes: CL, desc: 'Easy on, easy off over wet skin. Sample product for demonstration.', material: 'Sample: fleece (to be verified)', fit: 'Sample: relaxed fit', delivery: 'Sample information: this item may ship separately from other clothing. Verify with the store before launch.' },
+  { id: 'beanie', name: 'Sample Bobble Beanie', cat: 'Accessories', kind: 'beanie', price: 22, colours: [SUN, NAVY, SAND], sizes: ['One size'], desc: 'Warm head, happy swimmer. Sample product for demonstration.', material: 'Sample: knit acrylic/wool blend (to be verified)', fit: 'Sample: one size, stretchy', delivery: SAMPLE_DELIVERY },
+  { id: 'bag', name: 'Sample Dry Bag', cat: 'Accessories', kind: 'bag', price: 30, colours: [OCEAN, SUN], sizes: ['One size'], desc: 'Keep the towel dry and the phone safe. Sample product for demonstration.', material: 'Sample: waterproof fabric (to be verified)', fit: 'Sample: approx. 10 L (to be verified)', delivery: SAMPLE_DELIVERY },
+];
+
+function Icon({ d, s = 20, c = '' }: { d: string; s?: number; c?: string }) {
+  return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={c} aria-hidden="true"><path d={d} /></svg>;
+}
+const I = {
+  cart: 'M6 6h15l-2 9H8L6 6zm0 0L5 3H2M9 20h.01M18 20h.01', menu: 'M4 6h16M4 12h16M4 18h16', x: 'M6 6l12 12M18 6L6 18', plus: 'M12 5v14M5 12h14', minus: 'M5 12h14',
+  check: 'M5 13l4 4L19 7', chev: 'M6 9l6 6 6-6', insta: 'M7 3h10a4 4 0 014 4v10a4 4 0 01-4 4H7a4 4 0 01-4-4V7a4 4 0 014-4zM12 8a4 4 0 100 8 4 4 0 000-8z', truck: 'M3 7h11v9H3zM14 10h4l3 3v3h-7M7 19h.01M17 19h.01',
+  lock: 'M6 11h12v9H6zM8 11V8a4 4 0 018 0v3', ret: 'M4 12a8 8 0 108-8M4 4v5h5', mail: 'M3 6h18v12H3zM3 6l9 7 9-7', help: 'M9 9a3 3 0 116 0c0 2-3 2-3 4M12 17h.01', back: 'M15 6l-6 6 6 6',
+};
+
+/* Illustrated placeholder scene (stands in for photography) */
+function Scene({ hue = 0, className = '', label = '' }: { hue?: number; className?: string; label?: string }) {
+  return (
+    <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" className={className} role="img" aria-label={label || 'Illustrated placeholder'}>
+      <defs>
+        <linearGradient id={'sk' + hue} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={`hsl(${205 + hue},45%,${70 - hue}%)`} /><stop offset="1" stopColor={`hsl(${200 + hue},40%,88%)`} /></linearGradient>
+        <linearGradient id={'wt' + hue} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={`hsl(${205 + hue},65%,32%)`} /><stop offset="1" stopColor="#0b1f3a" /></linearGradient>
+      </defs>
+      <rect width="400" height="300" fill={`url(#sk${hue})`} />
+      <path d="M0 150l60-40 50 25 70-55 80 60 60-35 80 45v50H0z" fill={`hsl(${210 + hue},25%,55%)`} opacity=".7" />
+      <rect y="160" width="400" height="140" fill={`url(#wt${hue})`} />
+      <g className="drift" fill="none" stroke="#fff" strokeOpacity=".35" strokeWidth="2"><path d="M-20 190q30-10 60 0t60 0 60 0 60 0 60 0 60 0 60 0" /><path d="M-20 225q30-10 60 0t60 0 60 0 60 0 60 0 60 0 60 0" /></g>
+      {[[130 + hue * 4, 195, '#f5c518'], [175 + hue * 3, 205, '#f5f3ee'], [225 - hue * 2, 192, '#1f6fa8']].map(([x, y, col], i) => (
+        <g key={i}><circle cx={x as number} cy={y as number} r="11" fill="#e8c9a8" /><path d={`M${(x as number) - 13} ${(y as number) - 4}a13 11 0 0126 0z`} fill={col as string} /></g>
+      ))}
+    </svg>
+  );
+}
+
+/* Product art placeholder */
+function Art({ p, colour, view = 0, className = '' }: { p: Product; colour: string; view?: number; className?: string }) {
+  const shapes: Record<Kind, string> = {
+    tee: 'M32 22l18-8c4 8 16 8 20 0l18 8 12 22-14 6v46H34V50l-14-6z',
+    hoodie: 'M30 28l16-10c2 10 22 10 24 0l16 10 14 24-14 6v38H30V58l-14-6z',
+    beanie: 'M30 80a30 40 0 0160 0v10H30zM28 84h64v12H28z',
+    bag: 'M34 40h52l6 54H28zM46 40a14 14 0 0128 0',
+  };
+  const bg = ['#dbe7f1', '#e9e4d8', '#c9dbe9'][view % 3];
+  return (
+    <svg viewBox="0 0 120 120" className={className} role="img" aria-label={`${p.name} placeholder, ${colour}`}>
+      <rect width="120" height="120" fill={bg} />
+      <g transform={view === 1 ? 'translate(120 0) scale(-1 1)' : view === 2 ? 'translate(-30 -30) scale(1.5)' : ''}>
+        <path d={shapes[p.kind]} fill={colour} stroke="#0b1f3a" strokeOpacity=".25" strokeWidth="1" strokeLinejoin="round" />
+        {p.kind === 'beanie' && <circle cx="60" cy="42" r="8" fill={colour} stroke="#0b1f3a" strokeOpacity=".25" />}
+      </g>
+      <text x="60" y="114" textAnchor="middle" fontSize="6" fill="#0b1f3a" opacity=".55">SAMPLE IMAGE</text>
+    </svg>
+  );
+}
+
+function useHash(): [string, (h: string) => void] {
+  const [h, setH] = useState(location.hash.slice(1));
+  useEffect(() => { const f = () => setH(location.hash.slice(1)); window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
+  return [h, (n) => { location.hash = n; }];
+}
+
+function Nav({ count, go, openCart }: { count: number; go: (id: string) => void; openCart: () => void }) {
+  const [open, setOpen] = useState(false);
+  const links: [string, string][] = [['Home', 'top'], ['Shop', 'shop'], ['Our Story', 'story'], ['Community', 'community'], ['FAQ', 'faq'], ['Contact', 'contact']];
+  return (
+    <header className="sticky top-0 z-40 bg-navy text-foam" style={{ paddingTop: 'env(safe-area-inset-top,0px)' }}>
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <button onClick={() => go('top')} className="text-left font-black uppercase leading-none tracking-tight" aria-label="Cold Wild Swim Club home">
+          <span className="block text-sm text-sun">Cold Wild</span><span className="block text-lg">Swim Club</span>
+        </button>
+        <nav className="hidden gap-7 text-sm font-medium md:flex" aria-label="Main">
+          {links.map(([l, id]) => <button key={id} onClick={() => go(id)} className="hover:text-sun">{l}</button>)}
+        </nav>
+        <div className="flex items-center gap-2">
+          <button onClick={openCart} className="relative rounded-full p-2 hover:bg-white/10" aria-label={`Cart, ${count} items`}>
+            <Icon d={I.cart} s={22} />{count > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-sun px-1 text-xs font-bold text-navy">{count}</span>}
+          </button>
+          <button onClick={() => setOpen(!open)} className="rounded-full p-2 hover:bg-white/10 md:hidden" aria-label="Menu" aria-expanded={open}><Icon d={open ? I.x : I.menu} s={22} /></button>
+        </div>
+      </div>
+      {open && <nav className="border-t border-white/10 px-4 pb-4 md:hidden" aria-label="Mobile">
+        {links.map(([l, id]) => <button key={id} onClick={() => { setOpen(false); go(id); }} className="block w-full py-3 text-left text-lg font-semibold">{l}</button>)}
+      </nav>}
+      <div className="bg-sun py-1 text-center text-xs font-semibold text-navy">Independent redesign demonstration — sample products and placeholder imagery</div>
+    </header>
+  );
+}
+
+function Hero({ go }: { go: (id: string) => void }) {
+  return (
+    <section className="relative flex min-h-[88vh] items-end overflow-hidden bg-navy">
+      <Scene hue={0} className="absolute inset-0 h-full w-full" label="Illustrated cold-water swimmers" />
+      <div className="absolute inset-0 bg-gradient-to-t from-navy via-navy/50 to-transparent" />
+      <div className="rise relative mx-auto w-full max-w-6xl px-4 pb-14 text-foam">
+        <p className="mb-3 text-sm font-bold uppercase tracking-widest text-sun">Cold Wild Swim Club</p>
+        <h1 className="text-5xl font-black uppercase leading-[0.95] sm:text-7xl md:text-8xl">Cold water.<br />Warm people.</h1>
+        <p className="mt-5 max-w-xl text-lg text-foam/90">More than a swim club. A community built around the water.</p>
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+          <button onClick={() => go('shop')} className="rounded-full bg-sun px-7 py-3.5 font-bold text-navy hover:brightness-95">Shop Clothing</button>
+          <button onClick={() => go('community')} className="rounded-full border-2 border-foam px-7 py-3.5 font-bold hover:bg-foam hover:text-navy">Discover Our Community</button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductCard({ p, open, quickAdd }: { p: Product; open: () => void; quickAdd: (p: Product) => void }) {
+  const [ci, setCi] = useState(0);
+  const [done, setDone] = useState(false);
+  return (
+    <article className="group flex flex-col">
+      <button onClick={open} className="overflow-hidden rounded-2xl bg-white" aria-label={`View ${p.name}`}>
+        <Art p={p} colour={p.colours[ci].h} className="aspect-square w-full transition duration-500 group-hover:scale-105" />
+      </button>
+      <div className="mt-3 flex items-start justify-between gap-2">
+        <h3 className="font-bold leading-tight">{p.name}</h3><span className="font-semibold">£{p.price}<span className="text-xs text-slate2"> sample</span></span>
+      </div>
+      <div className="mt-2 flex gap-2" role="group" aria-label="Colours">
+        {p.colours.map((c, i) => <button key={c.n} onClick={() => setCi(i)} title={c.n} aria-label={c.n} className={`h-5 w-5 rounded-full border ${i === ci ? 'ring-2 ring-ocean ring-offset-2' : 'border-slate2/40'}`} style={{ background: c.h }} />)}
+      </div>
+      <p className="mt-2 flex items-center gap-1 text-xs text-slate2"><Icon d={I.truck} s={14} />Delivery info (sample) on product page</p>
+      <button onClick={() => { quickAdd({ ...p, colours: [p.colours[ci]] }); setDone(true); setTimeout(() => setDone(false), 1400); }} className="mt-3 flex items-center justify-center gap-2 rounded-full bg-navy py-2.5 text-sm font-bold text-foam hover:bg-ocean">
+        <Icon d={done ? I.check : I.plus} s={16} />{done ? 'Added' : 'Quick add'}
+      </button>
+    </article>
+  );
+}
+
+function Collection({ open, quickAdd }: { open: (id: string) => void; quickAdd: (p: Product) => void }) {
+  const [f, setF] = useState<'All' | Cat>('All');
+  const list = useMemo(() => PRODUCTS.filter((p) => f === 'All' || p.cat === f), [f]);
+  return (
+    <section id="shop" className="mx-auto max-w-6xl px-4 py-20">
+      <h2 className="text-4xl font-black uppercase sm:text-5xl">The collection</h2>
+      <p className="mt-2 text-slate2">Sample products for demonstration. Not real store inventory.</p>
+      <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Filter products">
+        {(['All', 'T-shirts', 'Hoodies', 'Accessories'] as const).map((c) => <button key={c} onClick={() => setF(c)} className={`rounded-full px-5 py-2 text-sm font-bold ${f === c ? 'bg-navy text-foam' : 'bg-white hover:bg-sun'}`}>{c}</button>)}
+      </div>
+      <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-3">
+        {list.map((p) => <ProductCard key={p.id} p={p} open={() => open(p.id)} quickAdd={quickAdd} />)}
+      </div>
+    </section>
+  );
+}
+
+function SizeGuide({ close }: { close: () => void }) {
+  const rows = [['XS', '—', '—'], ['S', '—', '—'], ['M', '—', '—'], ['L', '—', '—'], ['XL', '—', '—'], ['XXL', '—', '—']];
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy/70 p-4" role="dialog" aria-modal="true" aria-label="Size guide" onClick={close}>
+      <div className="w-full max-w-md rounded-2xl bg-foam p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between"><h3 className="text-xl font-black uppercase">Size guide</h3><button onClick={close} aria-label="Close"><Icon d={I.x} /></button></div>
+        <p className="mt-2 text-sm text-slate2">Placeholder table. Real measurements to be supplied by the store.</p>
+        <table className="mt-4 w-full text-left text-sm"><thead><tr className="border-b border-slate2/30"><th className="py-2">Size</th><th>Chest (cm)</th><th>Length (cm)</th></tr></thead>
+          <tbody>{rows.map((r) => <tr key={r[0]} className="border-b border-slate2/20">{r.map((c, i) => <td key={i} className="py-2">{c}</td>)}</tr>)}</tbody></table>
+      </div>
+    </div>
+  );
+}
+
+function ProductPage({ p, add, back }: { p: Product; add: (p: Product, c: string, s: string, q: number) => void; back: () => void }) {
+  const [ci, setCi] = useState(0), [view, setView] = useState(0), [size, setSize] = useState(''), [qty, setQty] = useState(1), [guide, setGuide] = useState(false), [err, setErr] = useState(false), [ok, setOk] = useState(false);
+  const one = p.sizes.length === 1;
+  const submit = () => { const s = one ? p.sizes[0] : size; if (!s) { setErr(true); return; } add(p, p.colours[ci].n, s, qty); setOk(true); setTimeout(() => setOk(false), 1500); };
+  return (
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <button onClick={back} className="mb-6 flex items-center gap-1 text-sm font-semibold text-ocean"><Icon d={I.back} s={16} />Back to shop</button>
+      <div className="grid gap-8 md:grid-cols-2">
+        <div>
+          <div className="overflow-hidden rounded-2xl"><Art p={p} colour={p.colours[ci].h} view={view} className="aspect-square w-full" /></div>
+          <div className="mt-3 grid grid-cols-3 gap-3">{[0, 1, 2].map((v) => <button key={v} onClick={() => setView(v)} aria-label={`Image ${v + 1}`} className={`overflow-hidden rounded-xl ${view === v ? 'ring-2 ring-ocean' : ''}`}><Art p={p} colour={p.colours[ci].h} view={v} className="aspect-square w-full" /></button>)}</div>
+        </div>
+        <div>
+          <p className="text-sm font-bold uppercase tracking-widest text-ocean">{p.cat}</p>
+          <h1 className="mt-1 text-4xl font-black uppercase leading-tight">{p.name}</h1>
+          <p className="mt-2 text-2xl font-bold">£{p.price} <span className="text-sm font-normal text-slate2">sample price</span></p>
+          <p className="mt-4">{p.desc}</p>
+          <h3 className="mt-6 text-sm font-bold uppercase">Colour: {p.colours[ci].n}</h3>
+          <div className="mt-2 flex gap-3">{p.colours.map((c, i) => <button key={c.n} onClick={() => setCi(i)} aria-label={c.n} className={`h-9 w-9 rounded-full border ${i === ci ? 'ring-2 ring-ocean ring-offset-2' : 'border-slate2/40'}`} style={{ background: c.h }} />)}</div>
+          {!one && <>
+            <div className="mt-6 flex items-center justify-between"><h3 className="text-sm font-bold uppercase">Size</h3><button onClick={() => setGuide(true)} className="text-sm font-semibold text-ocean underline">Size guide</button></div>
+            <div className="mt-2 flex flex-wrap gap-2">{p.sizes.map((s) => <button key={s} onClick={() => { setSize(s); setErr(false); }} className={`min-w-12 rounded-lg border-2 px-3 py-2 text-sm font-bold ${size === s ? 'border-navy bg-navy text-foam' : 'border-slate2/40 bg-white'}`}>{s}</button>)}</div>
+            {err && <p className="mt-2 text-sm font-semibold text-red-700" role="alert">Please choose a size.</p>}
+          </>}
+          <div className="mt-6 flex items-center gap-4">
+            <div className="flex items-center rounded-full border-2 border-navy"><button onClick={() => setQty(Math.max(1, qty - 1))} className="p-3" aria-label="Decrease"><Icon d={I.minus} s={16} /></button><span className="w-8 text-center font-bold" aria-live="polite">{qty}</span><button onClick={() => setQty(qty + 1)} className="p-3" aria-label="Increase"><Icon d={I.plus} s={16} /></button></div>
+            <button onClick={submit} className="flex-1 rounded-full bg-sun py-3.5 font-bold text-navy hover:brightness-95">{ok ? 'Added to cart' : 'Add to cart'}</button>
+          </div>
+          <div className="mt-6 rounded-xl border-2 border-sun bg-white p-4 text-sm"><p className="flex items-center gap-2 font-bold"><Icon d={I.truck} s={18} />Delivery</p><p className="mt-1">{p.delivery}</p></div>
+          <dl className="mt-6 divide-y divide-slate2/30 text-sm">
+            <div className="py-3"><dt className="font-bold">Fit</dt><dd>{p.fit}</dd></div>
+            <div className="py-3"><dt className="font-bold">Material</dt><dd>{p.material}</dd></div>
+          </dl>
+        </div>
+      </div>
+      {guide && <SizeGuide close={() => setGuide(false)} />}
+    </main>
+  );
+}
+
+function CartDrawer({ lines, setQty, close }: { lines: Line[]; setQty: (k: string, q: number) => void; close: () => void }) {
+  const total = lines.reduce((a, l) => a + l.p.price * l.qty, 0);
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-navy/60" onClick={close}>
+      <aside className="flex h-full w-full max-w-md flex-col bg-foam" role="dialog" aria-modal="true" aria-label="Cart" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: 'env(safe-area-inset-bottom,0px)' }}>
+        <div className="flex items-center justify-between border-b border-slate2/30 p-4"><h2 className="text-xl font-black uppercase">Your cart</h2><button onClick={close} aria-label="Close cart"><Icon d={I.x} /></button></div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {lines.length === 0 && <p className="text-slate2">Your cart is empty.</p>}
+          {lines.map((l) => (
+            <div key={l.key} className="mb-4 flex gap-3 rounded-xl bg-white p-3">
+              <Art p={l.p} colour={(l.p.colours.find((c) => c.n === l.colour) || l.p.colours[0]).h} className="h-20 w-20 shrink-0 rounded-lg" />
+              <div className="flex-1 text-sm">
+                <p className="font-bold">{l.p.name}</p><p className="text-slate2">{l.colour} · {l.size}</p>
+                <p className="mt-1 flex items-start gap-1 text-xs"><Icon d={I.truck} s={13} c="mt-0.5 shrink-0" />{l.p.delivery}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2"><button onClick={() => setQty(l.key, l.qty - 1)} aria-label="Decrease" className="rounded-full border p-1"><Icon d={I.minus} s={14} /></button><span className="w-5 text-center font-bold">{l.qty}</span><button onClick={() => setQty(l.key, l.qty + 1)} aria-label="Increase" className="rounded-full border p-1"><Icon d={I.plus} s={14} /></button></div>
+                  <span className="font-bold">£{l.p.price * l.qty}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-slate2/30 p-4">
+          <div className="flex justify-between text-lg font-bold"><span>Subtotal (sample)</span><span>£{total}</span></div>
+          <p className="mt-2 text-xs text-slate2">Delivery costs and dates are not calculated in this demonstration.</p>
+          <button disabled className="mt-3 w-full cursor-not-allowed rounded-full bg-navy/40 py-3.5 font-bold text-foam">Checkout disabled in demo</button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function Story() {
+  return (
+    <section id="story" className="bg-navy py-20 text-foam">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-2">
+        <div><p className="text-sm font-bold uppercase tracking-widest text-sun">Our story</p><h2 className="mt-2 text-4xl font-black uppercase sm:text-5xl">Cold water. Warm people.</h2>
+          <p className="mt-4 text-foam/80">Placeholder section for the brand's own story. Replace with approved copy about how the club began and what it stands for.</p></div>
+        <Scene hue={12} className="aspect-[4/3] w-full rounded-2xl" label="Illustrated lake scene" />
+      </div>
+    </section>
+  );
+}
+
+function Community() {
+  return (
+    <section id="community" className="relative overflow-hidden">
+      <Scene hue={-8} className="absolute inset-0 h-full w-full" label="Illustrated swimmers gathering" />
+      <div className="absolute inset-0 bg-navy/70" />
+      <div className="relative mx-auto max-w-6xl px-4 py-24 text-foam">
+        <p className="text-sm font-bold uppercase tracking-widest text-sun">Community</p>
+        <h2 className="mt-2 max-w-2xl text-4xl font-black uppercase leading-tight sm:text-6xl">Nobody swims alone</h2>
+        <p className="mt-4 max-w-xl text-lg">Shared flasks, shared laughs, shared goosebumps. Come as you are and leave warmer than you arrived.</p>
+        <a href="https://www.instagram.com/" target="_blank" rel="noreferrer" className="mt-7 inline-flex items-center gap-2 rounded-full bg-sun px-7 py-3.5 font-bold text-navy"><Icon d={I.insta} s={18} />Follow the club</a>
+        <div className="mt-12 rounded-2xl border-2 border-dashed border-foam/50 p-6">
+          <p className="font-bold uppercase">Your photos here</p>
+          <p className="mt-1 text-sm text-foam/80">Reserved for genuine customer-submitted photographs, shown only with permission. No sample people are presented as customers.</p>
+          <div className="mt-4 grid grid-cols-3 gap-3">{[0, 1, 2].map((i) => <div key={i} className="grid aspect-square place-items-center rounded-xl bg-white/10 text-xs text-foam/60">Awaiting photo</div>)}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Gallery() {
+  const [sel, setSel] = useState<number | null>(null);
+  const tiles = [0, 10, -10, 18, -16, 6, 24, -4];
+  useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && setSel(null); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-20">
+      <h2 className="text-4xl font-black uppercase sm:text-5xl">On the feed</h2>
+      <p className="mt-2 text-slate2">Demonstration content. Illustrated placeholders, not real posts.</p>
+      <div className="mt-8 grid grid-cols-2 gap-2 md:grid-cols-4">
+        {tiles.map((h, i) => <button key={i} onClick={() => setSel(i)} aria-label={`Open sample image ${i + 1}`} className="group relative overflow-hidden rounded-xl"><Scene hue={h} className="aspect-square w-full transition duration-500 group-hover:scale-110" /><span className="absolute inset-0 grid place-items-center bg-navy/0 text-foam opacity-0 transition group-hover:bg-navy/40 group-hover:opacity-100"><Icon d={I.insta} s={28} /></span></button>)}
+      </div>
+      {sel !== null && <div className="fixed inset-0 z-50 grid place-items-center bg-navy/85 p-4" onClick={() => setSel(null)} role="dialog" aria-modal="true" aria-label="Image preview">
+        <div className="w-full max-w-lg" onClick={(e) => e.stopPropagation()}><Scene hue={tiles[sel]} className="aspect-square w-full rounded-2xl" /><div className="mt-3 flex items-center justify-between text-foam"><span className="text-sm">Demonstration content</span><button onClick={() => setSel(null)} aria-label="Close"><Icon d={I.x} /></button></div></div>
+      </div>}
+    </section>
+  );
+}
+
+function Trust() {
+  const blocks: [string, string, string][] = [
+    [I.truck, 'Shipping', 'Placeholder. Shipping arrangements can differ between product types. The store to supply verified details and timings.'],
+    [I.ret, 'Returns', 'Placeholder. Returns policy to be supplied and verified by the store.'],
+    [I.lock, 'Secure checkout', 'Placeholder. Checkout is not active in this demonstration. The live store would describe its payment security here.'],
+    [I.mail, 'Contact', 'Placeholder. Contact details to be supplied by the store.'],
+  ];
+  const faqs: [string, string][] = [
+    ['Is this the real store?', 'No. This is an independent redesign demonstration with sample products. Nothing here can be purchased.'],
+    ['Why do some items have different delivery notes?', 'The demo shows where product-specific delivery information would appear. Real wording must come from the store.'],
+    ['Where do the photos come from?', 'They are illustrated placeholders. Real photography should be used only from permitted sources.'],
+  ];
+  const [o, setO] = useState<number | null>(0);
+  return (
+    <section className="bg-white py-20">
+      <div className="mx-auto max-w-6xl px-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{blocks.map(([d, t, x]) => <div key={t} id={t === 'Contact' ? 'contact' : undefined} className="rounded-2xl bg-foam p-5"><Icon d={d} s={26} c="text-ocean" /><h3 className="mt-3 font-black uppercase">{t}</h3><p className="mt-1 text-sm text-slate2">{x}</p></div>)}</div>
+        <div id="faq" className="mx-auto mt-16 max-w-2xl">
+          <h2 className="text-3xl font-black uppercase">FAQs</h2>
+          {faqs.map(([q, a], i) => <div key={q} className="border-b border-slate2/30"><button onClick={() => setO(o === i ? null : i)} aria-expanded={o === i} className="flex w-full items-center justify-between py-4 text-left font-bold">{q}<Icon d={I.chev} c={o === i ? 'rotate-180' : ''} /></button>{o === i && <p className="pb-4 text-slate2">{a}</p>}</div>)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  const [email, setEmail] = useState(''), [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const submit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) { setMsg({ ok: false, t: 'Please enter a valid email address.' }); return; }
+    setMsg({ ok: true, t: 'Thanks. Demo only, nothing was submitted.' }); setEmail('');
+  };
+  return (
+    <footer className="bg-navy text-foam">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-3">
+        <div><h3 className="text-xl font-black uppercase">Stay in the loop</h3><p className="mt-1 text-sm text-foam/70">Newsletter signup (demo).</p>
+          <div className="mt-3 flex gap-2"><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" aria-label="Email address" className="min-w-0 flex-1 rounded-full px-4 py-3 text-navy" /><button onClick={submit} className="rounded-full bg-sun px-5 font-bold text-navy">Join</button></div>
+          {msg && <p role="alert" className={`mt-2 text-sm font-semibold ${msg.ok ? 'text-sun' : 'text-red-300'}`}>{msg.t}</p>}</div>
+        <div><h3 className="font-bold uppercase">Customer support</h3><ul className="mt-3 space-y-2 text-sm text-foam/80"><li>Shipping</li><li>Returns</li><li>FAQs</li><li>Contact</li></ul></div>
+        <div><h3 className="font-bold uppercase">Policies &amp; social</h3><ul className="mt-3 space-y-2 text-sm text-foam/80"><li>Privacy policy (placeholder)</li><li>Terms of service (placeholder)</li><li><a href="https://www.instagram.com/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-sun"><Icon d={I.insta} s={14} />Instagram</a></li></ul></div>
+      </div>
+      <p className="border-t border-white/10 px-4 py-4 text-center text-xs text-foam/60">Independent redesign demonstration. Not affiliated with or modifying the original Cold Wild Swim Club website.</p>
+    </footer>
+  );
+}
+
+function App() {
+  const [hash, setHash] = useHash();
+  const [lines, setLines] = useState<Line[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const count = lines.reduce((a, l) => a + l.qty, 0);
+  const add = (p: Product, colour: string, size: string, qty: number) => {
+    const key = `${p.id}-${colour}-${size}`;
+    setLines((ls) => ls.find((l) => l.key === key) ? ls.map((l) => l.key === key ? { ...l, qty: l.qty + qty } : l) : [...ls, { key, p, colour, size, qty }]);
+  };
+  const quickAdd = (p: Product) => add(p, p.colours[0].n, p.sizes.includes('M') ? 'M' : p.sizes[0], 1);
+  const setQty = (k: string, q: number) => setLines((ls) => ls.map((l) => l.key === k ? { ...l, qty: q } : l).filter((l) => l.qty > 0));
+  const product = hash.startsWith('p-') ? PRODUCTS.find((p) => p.id === hash.slice(2)) : undefined;
+  const go = (id: string) => {
+    const scroll = () => id === 'top' ? window.scrollTo({ top: 0, behavior: 'smooth' }) : document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    if (product) { setHash(''); setTimeout(scroll, 60); } else scroll();
+  };
+  useEffect(() => { if (product) window.scrollTo(0, 0); }, [hash]);
+  return (
+    <>
+      <Nav count={count} go={go} openCart={() => setCartOpen(true)} />
+      {product ? <ProductPage p={product} add={add} back={() => go('shop')} /> : (
+        <main id="top">
+          <Hero go={go} />
+          <Collection open={(id) => setHash('p-' + id)} quickAdd={quickAdd} />
+          <Story />
+          <Community />
+          <Gallery />
+          <Trust />
+        </main>
+      )}
+      <Footer />
+      {cartOpen && <CartDrawer lines={lines} setQty={setQty} close={() => setCartOpen(false)} />}
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(<App />);
+</script>
+<script>
+try {
+  var code = Babel.transform(document.getElementById('src').textContent, { filename: 'app.tsx', presets: [['typescript', { isTSX: true, allExtensions: true }], 'react'] }).code;
+  (0, eval)(code);
+} catch (e) {
+  document.getElementById('root').innerHTML = '<pre style="padding:16px;white-space:pre-wrap">Render error: ' + String(e) + '</pre>';
+}
+</script>
+</body>
+</html>
